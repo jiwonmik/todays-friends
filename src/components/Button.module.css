@@ -1,0 +1,137 @@
+/* Shared pill-button shape/typography for every button on the session
+   screen (session start/end, speaker toggle, report actions) — color and
+   size vary by variant/size, but the shape and font treatment stay
+   consistent so the whole page reads as one button language. */
+.button {
+  display: inline-block;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+
+/* Only on devices with a real pointer — avoids a "stuck" hover state on
+   touch, where tapping leaves :hover engaged until the next tap elsewhere. */
+@media (hover: hover) and (pointer: fine) {
+  .button:not(:disabled):hover {
+    transform: translateY(-1px) scale(1.03);
+    filter: brightness(1.06);
+    box-shadow: 0 6px 18px rgba(31, 41, 55, 0.22);
+  }
+}
+
+.button:not(:disabled):active {
+  transform: scale(0.97);
+  filter: brightness(0.98);
+}
+
+/* Any variant — faded, flat (no hover/press feedback, see the :not(:disabled)
+   guards above), and a not-allowed cursor, so it reads as "not right now"
+   while keeping its place in the layout. */
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Sizes */
+.md {
+  font-size: 15px;
+  padding: 12px 22px;
+}
+
+.lg {
+  font-size: 17px;
+  padding: 16px 48px;
+}
+
+/* Icon-only, perfectly circular. */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.iconLg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  width: 88px;
+  height: 88px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* Variants */
+.primary {
+  background: #ffffff;
+  color: var(--ink, #1f2937);
+  box-shadow: 0 10px 28px rgba(31, 41, 55, 0.2);
+}
+
+.danger {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.18);
+}
+
+.toggle {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink, #1f2937);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.toggleKo {
+  flex: 1;
+  background: rgba(219, 234, 254, 0.95);
+  color: var(--ink, #1f2937);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.toggleZh {
+  flex: 1;
+  background: rgba(254, 226, 226, 0.95);
+  color: var(--ink, #1f2937);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Fixed translucent white regardless of the current background theme (not
+   theme-accent-colored like the avatars) — a "connecting"
+   state should read the same neutral way no matter what's behind it. Text
+   stays dark ink for legibility; only the chip's own background is the
+   translucent white. */
+.pending {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink, #1f2937);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: button-pending-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes button-pending-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

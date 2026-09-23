@@ -1,0 +1,8 @@
+/* Pinned to the bottom-right corner instead of sitting in the header, so it
+   stays reachable regardless of scroll. */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+}

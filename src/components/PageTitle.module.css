@@ -1,0 +1,41 @@
+.titleCenter,
+.titleTop {
+  position: fixed;
+  left: 50%;
+  z-index: 2;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+  font-family: var(--font-playfair, serif);
+  color: var(--ink, #1f2937);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.85);
+}
+
+.titleCenter em,
+.titleTop em {
+  font-style: italic;
+}
+
+/* Idle (first) screen only — dead center of the screen. */
+.titleCenter {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 640px);
+  font-size: clamp(32px, 8vw, 60px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* Every other screen (active session, session ended) — pinned near the
+   top edge with margin, out of the way of the speaker toggle / voice
+   overlay / feed below it. */
+.titleTop {
+  /* Spacing vars come from .page (page.module.css), which also reserves
+     the same gap below the title. Fallbacks match those values. */
+  top: var(--title-top, 20px);
+  transform: translateX(-50%);
+  width: min(90vw, 420px);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+}

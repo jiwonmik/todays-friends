@@ -1,0 +1,814 @@
+.page {
+  /*
+   * The background is a soft, busy photo (green/yellow/blue gradient mesh),
+   * so raw text laid directly on it would have unpredictable contrast
+   * depending on which part of the image sits behind it. Two fixed rules
+   * fix that: every text-bearing surface is a translucent "glass" panel
+   * with its own solid-enough backing (--glass-bg) so contrast never
+   * depends on the photo, and --accent is a deep violet — the complement
+   * of the image's dominant green/yellow — used for anything that *does*
+   * sit directly on the photo (the header bar's own edge, links) so it
+   * reads as a deliberate contrast rather than an accident.
+   * This also overrides the dark-mode foreground color from globals.css,
+   * which would otherwise put near-white text on these light panels.
+   */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  /* Static fallback for the very first paint — matches INITIAL_MESH_THEME
+     in src/lib/mesh-background.ts exactly, so the inline style the page
+     applies once mounted never causes a visible jump. Overridden per
+     background theme via inline custom properties on this element. */
+  --accent: #4c1d95;
+  --accent-ko: #2563eb;
+  --accent-zh: #dc2626;
+  --ink: #1f2937;
+
+  /* Pinned "top" title (PageTitle.module.css reads these): the gap above
+     the title and the gap below it — down to the first in-flow content —
+     are the same --title-gap. */
+  --title-gap: 20px;
+  --title-top: max(var(--title-gap), env(safe-area-inset-top, 0px));
+  --title-height: calc(22px * 1.3);
+  /* Where the in-flow content (the feed) starts: under the title + gap. */
+  --content-top: calc(var(--title-top) + var(--title-height) + var(--title-gap));
+  /* Top edge of the voice orb overlay — the feed's height is sized off it
+     so the two never overlap. */
+  --voice-overlay-top: 38vh;
+
+  position: relative;
+  z-index: 0;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--content-top) 16px 64px;
+  font-family: var(--font-geist-sans, system-ui);
+}
+
+/* With a report draft showing, the page gets long and scrolls under the
+   fixed 이어서 하기 / 새로 시작 row, whose top edge is pinned at 80vh
+   (.endedActions). Bottom padding of the remaining 20vh + a gap means that
+   scrolled all the way down, the draft ends 24px above the buttons. Keep in
+   sync with .endedActions' top. */
+.pageWithReport {
+  padding-bottom: calc(20vh + 24px);
+}
+
+/* Procedurally generated gradient-mesh backdrop (see src/lib/mesh-background.ts),
+   pinned to the viewport so it doesn't stretch or scroll with a long transcript. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.backdropGradient {
+  position: absolute;
+  inset: 0;
+  transition: background-image 0.6s ease;
+}
+
+.backdropGrain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0 4px 6px;
+}
+
+/* Nothing to show during an active session — drop it so it doesn't add
+   phantom height (and a flex gap) under the title. */
+.header:empty {
+  display: none;
+}
+
+/* Idle (first) screen only — same fixed screen position the speaker
+   toggle / report-trigger button use elsewhere, so the start button
+   anchors near the bottom of the screen regardless of the title above it
+   (which is now its own always-centered component, see PageTitle.tsx). */
+.heroStartButtonFixed {
+  position: fixed;
+  top: 80vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  /* Own stacking context so the ripples (z-index: -1) sit behind the
+     button but still above the page backdrop. */
+  isolation: isolate;
+  line-height: 0;
+}
+
+/* The button itself stays put on hover — the ripples behind it are the
+   hover feedback instead of the shared lift/scale. */
+@media (hover: hover) and (pointer: fine) {
+  /* Extra ancestor class so this beats Button.module.css's `.button:hover`
+     regardless of which stylesheet loads first. */
+  .heroStartButtonFixed .heroStartButton:hover {
+    transform: none;
+    box-shadow: 0 10px 28px rgba(31, 41, 55, 0.2);
+  }
+}
+
+/* "Stone dropped in a well" rings: each starts at the button's edge and
+   spreads outward while thinning and fading, staggered so a new ring
+   follows the last one out. Only runs while the button is hovered. */
+.ripple {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .heroStartButtonFixed:hover .ripple {
+    animation: hero-start-ripple 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  }
+
+  .heroStartButtonFixed:hover .ripple:nth-child(2) {
+    animation-delay: 0.8s;
+  }
+
+  .heroStartButtonFixed:hover .ripple:nth-child(3) {
+    animation-delay: 1.6s;
+  }
+}
+
+@keyframes hero-start-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+    border-width: 6px;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+    border-width: 1.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroStartButtonFixed:hover .ripple {
+    animation: none;
+  }
+}
+
+.warning {
+  background: rgba(254, 243, 199, 0.92);
+  color: #78350f;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.speakerToggle {
+  position: fixed;
+  top: 80vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(92vw, 520px);
+  display: flex;
+  gap: 12px;
+}
+
+/* Session-ended controls, at the same fixed screen position as the hero
+   "시작하기" button / speaker toggle — always 80% down the viewport,
+   regardless of scroll or how much content is above it. 활동 일지 생성하기
+   (the main next step) sits on top; 이어서 하기 / 새로 시작 share a row
+   under it. Full-width (not left: 50% + translate, which would cap its
+   width at half the viewport) so a row can wrap on narrow screens. The
+   container ignores clicks so the empty space around the buttons never
+   blocks the content underneath. */
+.endedActions {
+  position: fixed;
+  top: 80vh;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Two equal columns (each as wide as the wider button) rather than a
+   flex row: with unequal widths, the gap between the buttons — which the
+   eye reads as the center line — drifts off the page's center even when
+   the row as a whole is centered. */
+.endedActionsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.endedActionsRow .iconLabelButton {
+  justify-content: center;
+}
+
+.endedActions button {
+  pointer-events: auto;
+}
+
+/* visibility (not display: none) keeps the button's slot in the layout, so
+   the 이어서 하기 / 새로 시작 row under it stays put. Fades out first, then
+   visibility flips once the fade is done (the 0.2s delay); coming back, it
+   flips visible immediately and fades in.
+   Scoped under .endedActions so these win over Button's own `transition`
+   regardless of stylesheet order, and repeat its hover transitions so
+   those keep animating. */
+.endedActions .reportTrigger {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease,
+    opacity 0.2s ease,
+    visibility 0s;
+}
+
+.endedActions .reportTrigger.reportTriggerHidden {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s 0.2s;
+}
+
+/* Icon + label pills. Scoped under .endedActions so it beats Button's own
+   `display: inline-block` regardless of stylesheet order. */
+.endedActions .iconLabelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pendingHint {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* "Voice orb" — shown while a speaker is actively being listened to, as a
+   soft blurred blob of color continuously swirling (three overlapping
+   radial-gradient layers rotating at different speeds/directions). Pinned
+   dead-center of the viewport (not just centered in the column) so it takes
+   visual priority while someone is mid-sentence; pointer-events: none so it
+   never blocks clicking the speaker toggle underneath it. */
+/* The orb's own top edge is pinned at a fixed screen position
+   (--voice-overlay-top, horizontally centered) — only horizontal
+   centering is transform-based.
+   Deliberately NOT vertically centering the whole group: the caption text
+   below the orb appears/grows/shrinks constantly, and centering the group
+   as a unit would shift the orb itself up and down every time that
+   happens, which reads as the orb "moving". Pinning just its top edge
+   keeps the orb rock-steady; only the caption grows downward from it. */
+.voiceOverlay {
+  position: fixed;
+  top: var(--voice-overlay-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: min(60vw, 900px);
+  padding: 0 16px;
+  pointer-events: none;
+  animation: voice-overlay-in 0.3s ease;
+  /* Shared by the orb and the "connecting" spinner's slot, so both are
+     centered on the exact same point. */
+  --voice-orb-size: 192px;
+}
+
+@keyframes voice-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* Shown in .voiceOverlay instead of the orb while a speaker is selected
+   but Chrome hasn't actually started listening yet (e.g. a pending mic
+   permission prompt) — makes that gap impossible to miss. */
+/* Fixed translucent white regardless of the current background theme —
+   same reasoning as the .pending button variant in Button.module.css. */
+.loadingSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--voice-orb-size);
+  height: var(--voice-orb-size);
+  flex-shrink: 0;
+}
+
+.loadingSpinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  animation: loading-spinner-rotate 0.8s linear infinite;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 10px rgba(31, 41, 55, 0.25));
+}
+
+.loadingLabel {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.85);
+}
+
+@keyframes loading-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* While someone is speaking, the orb is also the "translate now" control:
+   it ends the current utterance immediately instead of waiting for
+   Chrome's silence detection. The overlay around it is pointer-events:
+   none (so captions never block clicks), so the button opts back in.
+   Visually it's just the orb — no button chrome. Disabled (and inert to
+   hover) while there's nothing being recognized to translate. */
+.voiceOrbButton {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.voiceOrbButton:disabled {
+  cursor: default;
+}
+
+.voiceOrbButton:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 4px;
+}
+
+/* Theme-accent wash laid over the blobs on hover — gradients can't
+   transition between colors, so the tint fades in as its own layer
+   instead. It sits inside .voiceOrb, so it spins/breathes and gets the
+   same soft mask. */
+.voiceOrbTint {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--accent) 15%, transparent 75%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.voiceOrbIcon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 8px rgba(31, 41, 55, 0.45));
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.voiceOrbButton:not(:disabled):hover .voiceOrbTint,
+.voiceOrbButton:not(:disabled):focus-visible .voiceOrbTint {
+  opacity: 0.6;
+}
+
+.voiceOrbButton:not(:disabled):hover .voiceOrbIcon,
+.voiceOrbButton:not(:disabled):focus-visible .voiceOrbIcon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.voiceOrb {
+  position: relative;
+  display: block;
+  width: var(--voice-orb-size);
+  height: var(--voice-orb-size);
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Soft radial falloff instead of a hard circular clip — the reference
+     animation has no crisp edge, it just fades into the background. */
+  -webkit-mask-image: radial-gradient(circle, black 48%, transparent 78%);
+  mask-image: radial-gradient(circle, black 48%, transparent 78%);
+  animation: voice-orb-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes voice-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.voiceOrbBlobA,
+.voiceOrbBlobB,
+.voiceOrbBlobC {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  filter: blur(33px);
+}
+
+.voiceOrbBlobA {
+  background: radial-gradient(circle at 30% 30%, #60a5fa, transparent 60%);
+  animation: voice-orb-spin 5s linear infinite;
+}
+
+.voiceOrbBlobB {
+  background: radial-gradient(circle at 70% 40%, #a78bfa, transparent 60%);
+  animation: voice-orb-spin 6.5s linear infinite reverse;
+}
+
+.voiceOrbBlobC {
+  background: radial-gradient(circle at 50% 75%, #f472b6, transparent 55%);
+  animation: voice-orb-swirl 7.5s ease-in-out infinite;
+}
+
+/* No speaker picked yet — same shape/motion, translucent white instead of
+   the vivid blue/purple/pink used once a speaker is actually being
+   listened to, so "not active" reads clearly at a glance without
+   introducing an unrelated gray. */
+.voiceOrbIdle .voiceOrbBlobA {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), transparent 60%);
+}
+
+.voiceOrbIdle .voiceOrbBlobB {
+  background: radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.6), transparent 60%);
+}
+
+.voiceOrbIdle .voiceOrbBlobC {
+  background: radial-gradient(circle at 50% 75%, rgba(255, 255, 255, 0.75), transparent 55%);
+}
+
+@keyframes voice-orb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes voice-orb-swirl {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+}
+
+/* The current, still-being-recognized sentence — deliberately large so it
+   dominates the screen while someone is actively speaking (paired with
+   .voiceOverlay above). Replaced by a small history line once finalized. */
+.liveCaptionGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform-origin: center top;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease;
+}
+
+.liveCaption {
+  margin: 0;
+  font-family: var(--font-playfair, serif);
+  font-style: italic;
+  font-size: clamp(32px, 7.5vw, 52px);
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.8);
+}
+
+/* Shown below the original once its translation is ready, while held in
+   the big caption — same pairing the feed uses, just centered here. */
+.liveCaptionTranslated {
+  margin: 0;
+  font-family: var(--font-playfair, serif);
+  font-size: clamp(18px, 3.5vw, 26px);
+  text-align: center;
+  color: var(--ink);
+  opacity: 0.7;
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.8);
+}
+
+/* Held for a few seconds after translation finishes, then sinks down and
+   fades out — reads as the utterance dropping into the feed below (see
+   CAPTION_HOLD_MS / CAPTION_SHRINK_MS in page.tsx, kept in sync with the
+   0.5s transition duration above). */
+.liveCaptionShrink {
+  transform: scale(0.55) translateY(60px);
+  opacity: 0;
+}
+
+/* Fixed-height, scrollable conversation log — newest message at the
+   bottom (append order), auto-scrolled into view as lines are added
+   (see the `feedRef` effect in page.tsx). */
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Ends one --title-gap above the voice orb (never under it), with a floor
+     so very short windows still show a couple of lines. */
+  height: max(120px, calc(var(--voice-overlay-top) - var(--content-top) - var(--title-gap)));
+  width: min(60vw, 900px);
+  /* align-self, not margin: auto — at 60vw the feed can be wider than the
+     page column, and auto margins can't center an overflowing flex item
+     (it spills to the right); align-self: center overflows evenly. */
+  align-self: center;
+  overflow-y: auto;
+  padding-right: 4px;
+  scroll-behavior: smooth;
+  /* "More messages this way" cue: fade the content out toward whichever
+     edge has messages scrolled past it (data-fade-* set by syncFeedFades
+     in page.tsx). A mask rather than a blur overlay, so the fade has no
+     visible hard edge. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  transition:
+    --feed-fade-top 0.25s ease,
+    --feed-fade-bottom 0.25s ease;
+}
+
+.feed[data-fade-top="true"] {
+  --feed-fade-top: 56px;
+}
+
+.feed[data-fade-bottom="true"] {
+  --feed-fade-bottom: 56px;
+}
+
+/* Registered so the fade depths can transition smoothly in and out
+   (unregistered custom properties just snap). */
+@property --feed-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --feed-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.feed > * {
+  animation: feed-line-in 0.35s ease;
+  flex-shrink: 0;
+}
+
+@keyframes feed-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* No card background — messages sit directly on the page, distinguished
+   by recency instead: the latest message reads in full-strength ink, every
+   earlier one is faded down so the eye lands on what was just said. Both
+   still carry the white text-shadow the rest of the page uses so they stay
+   legible directly on the busy backdrop. */
+.messageRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 85%;
+}
+
+/* Avatar on the left for "나" (Korean), on the right for "학생" (Chinese) —
+   replaces the old "나"/"학생" text label. The row itself is capped below
+   100% width and pinned to that same side via the auto margin, so each
+   speaker's messages hug their own edge of the feed instead of both
+   spanning full width. */
+.messageRowKo {
+  flex-direction: row;
+  margin-right: auto;
+}
+
+.messageRowZh {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+
+.avatarKo,
+.avatarZh {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.18);
+}
+
+.avatarKo {
+  background: var(--accent-ko, #2563eb);
+}
+
+.avatarZh {
+  background: var(--accent-zh, #dc2626);
+}
+
+.messageLatest,
+.messageOlder {
+  padding: 2px 2px;
+  min-width: 0;
+}
+
+.messageLatest {
+  color: var(--ink);
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+}
+
+.messageOlder {
+  color: var(--ink);
+  opacity: 0.4;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.65);
+  transition: opacity 0.3s ease;
+}
+
+/* Report requested (see .feedReview in page.tsx): no latest-vs-older
+   emphasis anymore — every original line and translation in full ink. */
+.feedReview .messageOlder {
+  opacity: 1;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+}
+
+.messageOriginal {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.messageTranslated {
+  font-size: 15px;
+  margin-top: 2px;
+  opacity: 0.75;
+  transition: opacity 0.3s ease;
+}
+
+.feedReview .messageTranslated {
+  opacity: 1;
+}
+
+.summaryBox {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--glass-bg-strong);
+  border: 1px solid rgba(76, 29, 149, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.1);
+}
+
+/* Breathing room between the form link and the hint text under it. It
+   sits inside the glass panel, so the primary variant's big floating
+   shadow is toned down to a light one (hover included). */
+.formLinkButton {
+  margin-bottom: 12px;
+}
+
+/* Scoped selectors so these beat Button.module.css's `.primary` and
+   `.button:not(:disabled):hover` shadows regardless of which stylesheet
+   loads first. */
+.summaryBox a.formLinkButton {
+  box-shadow: 0 2px 8px rgba(31, 41, 55, 0.12);
+}
+
+.summaryBox a.formLinkButton:hover {
+  box-shadow: 0 3px 10px rgba(31, 41, 55, 0.16);
+}
+
+.summaryBox h2 {
+  font-family: var(--font-playfair, serif);
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.reportHint {
+  font-size: 13px;
+  color: #4b5563;
+  margin-bottom: 12px;
+}
+
+.reportMeta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(76, 29, 149, 0.15);
+  font-size: 14px;
+}
+
+.reportMetaLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.reportField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.reportField label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.reportField textarea,
+.reportField input[type="text"] {
+  min-height: 72px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #ffffff;
+  resize: vertical;
+}
+
+.reportField textarea:focus,
+.reportField input[type="text"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.reportField input[type="text"] {
+  min-height: unset;
+}

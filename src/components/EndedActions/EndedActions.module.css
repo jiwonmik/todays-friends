@@ -1,0 +1,72 @@
+/* Session-ended controls, at the same fixed screen position as the hero
+   "시작하기" button / speaker toggle — always 80% down the viewport,
+   regardless of scroll or how much content is above it. 활동 일지 생성하기
+   (the main next step) sits on top; 이어서 하기 / 새로 시작 share a row
+   under it. Full-width (not left: 50% + translate, which would cap its
+   width at half the viewport) so a row can wrap on narrow screens. The
+   container ignores clicks so the empty space around the buttons never
+   blocks the content underneath. */
+.endedActions {
+  position: fixed;
+  top: 80vh;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Two equal columns (each as wide as the wider button) rather than a
+   flex row: with unequal widths, the gap between the buttons — which the
+   eye reads as the center line — drifts off the page's center even when
+   the row as a whole is centered. */
+.endedActionsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.endedActionsRow .iconLabelButton {
+  justify-content: center;
+}
+
+.endedActions button {
+  pointer-events: auto;
+}
+
+/* visibility (not display: none) keeps the button's slot in the layout, so
+   the 이어서 하기 / 새로 시작 row under it stays put. Fades out first, then
+   visibility flips once the fade is done (the 0.2s delay); coming back, it
+   flips visible immediately and fades in.
+   Scoped under .endedActions so these win over Button's own `transition`
+   regardless of stylesheet order, and repeat its hover transitions so
+   those keep animating. */
+.endedActions .reportTrigger {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease,
+    opacity 0.2s ease,
+    visibility 0s;
+}
+
+.endedActions .reportTrigger.reportTriggerHidden {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s 0.2s;
+}
+
+/* Icon + label pills. Scoped under .endedActions so it beats Button's own
+   `display: inline-block` regardless of stylesheet order. */
+.endedActions .iconLabelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

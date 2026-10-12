@@ -1,0 +1,203 @@
+/* Fixed-height, scrollable conversation log — newest message at the
+   bottom (append order), auto-scrolled into view as lines are added
+   (see useFeedScroll.ts). */
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Ends one --title-gap above the voice orb (never under it), with a floor
+     so very short windows still show a couple of lines. */
+  height: max(120px, calc(var(--voice-overlay-top) - var(--content-top) - var(--title-gap)));
+  width: min(60vw, 900px);
+  /* align-self, not margin: auto — at 60vw the feed can be wider than the
+     page column, and auto margins can't center an overflowing flex item
+     (it spills to the right); align-self: center overflows evenly. */
+  align-self: center;
+  overflow-y: auto;
+  padding-right: 4px;
+  scroll-behavior: smooth;
+  /* "More messages this way" cue: fade the content out toward whichever
+     edge has messages scrolled past it (data-fade-* set by syncScrollFades,
+     src/lib/scroll-fades.ts). A mask rather than a blur overlay, so the fade has no
+     visible hard edge. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  transition:
+    --feed-fade-top 0.25s ease,
+    --feed-fade-bottom 0.25s ease;
+}
+
+.feed[data-fade-top="true"] {
+  --feed-fade-top: 56px;
+}
+
+.feed[data-fade-bottom="true"] {
+  --feed-fade-bottom: 56px;
+}
+
+.feed > * {
+  animation: feed-line-in 0.35s ease;
+  flex-shrink: 0;
+}
+
+@keyframes feed-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* No card background — messages sit directly on the page, distinguished
+   by recency instead: the latest message reads in full-strength ink, every
+   earlier one is faded down so the eye lands on what was just said. Both
+   still carry the white text-shadow the rest of the page uses so they stay
+   legible directly on the busy backdrop. */
+.messageRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Avatar on the left for "나" (Korean), on the right for "학생" (Chinese) —
+   replaces the old "나"/"학생" text label. The row spans the feed's full
+   width (so the whole line is the delete button's hover target) and the
+   flex direction packs its content against that same side, with the
+   message itself capped below full width — each speaker's messages hug
+   their own edge of the feed instead of both spanning it. */
+.messageRowKo {
+  flex-direction: row;
+}
+
+.messageRowZh {
+  flex-direction: row-reverse;
+}
+
+.avatarKo,
+.avatarZh {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.18);
+}
+
+.avatarKo {
+  background: var(--accent-ko, #2563eb);
+}
+
+.avatarZh {
+  background: var(--accent-zh, #dc2626);
+}
+
+.messageLatest,
+.messageOlder {
+  padding: 2px 2px;
+  min-width: 0;
+  /* 85% of the line, minus the avatar and the gap after it. */
+  max-width: calc(85% - 40px);
+}
+
+.messageLatest {
+  color: var(--ink);
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+  transition: color 0.15s ease;
+}
+
+.messageOlder {
+  color: var(--ink);
+  opacity: 0.4;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.65);
+  transition:
+    opacity 0.3s ease,
+    color 0.15s ease;
+}
+
+/* Report requested (see `review` in TranscriptFeed.tsx): no latest-vs-older
+   emphasis anymore — every original line and translation in full ink. */
+.feedReview .messageOlder {
+  opacity: 1;
+  text-shadow: 0 2px 14px rgba(255, 255, 255, 0.8);
+}
+
+.messageOriginal {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.messageTranslated {
+  font-size: 15px;
+  margin-top: 2px;
+  opacity: 0.75;
+  transition: opacity 0.3s ease;
+}
+
+.feedReview .messageTranslated {
+  opacity: 1;
+}
+
+/* Slot for the delete button beside each message, on its open side (the
+   row's flex direction puts it right of "나" and left of "학생"). The
+   button stays invisible until the message's line is hovered — or it's
+   focused by keyboard. */
+.messageDeleteGutter {
+  width: 44px;
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.messageDeleteButton {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+.messageRow:hover .messageDeleteButton,
+.messageDeleteButton:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.messageDeleteButton:hover {
+  color: #dc2626;
+}
+
+/* Hovering the delete button tints the message it would delete the same
+   red, so it's clear which line goes. */
+.messageRow:has(.messageDeleteButton:hover) :is(.messageLatest, .messageOlder) {
+  color: #dc2626;
+}

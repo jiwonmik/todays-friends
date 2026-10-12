@@ -55,3 +55,17 @@ a {
     color-scheme: dark;
   }
 }
+
+/* Registered so the fade depths can transition smoothly in and out
+   (unregistered custom properties just snap). */
+@property --feed-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --feed-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}

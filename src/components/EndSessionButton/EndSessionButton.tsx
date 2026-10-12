@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
-import { Button } from "./Button";
+import { Button } from "../Button";
 import styles from "./EndSessionButton.module.css";
 
 function StopIcon({ size = 18 }: { size?: number }) {

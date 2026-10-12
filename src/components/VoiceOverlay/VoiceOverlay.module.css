@@ -1,0 +1,188 @@
+/* "Voice orb" — shown while a speaker is actively being listened to, as a
+   soft blurred blob of color continuously swirling (three overlapping
+   radial-gradient layers rotating at different speeds/directions). Pinned
+   dead-center of the viewport (not just centered in the column) so it takes
+   visual priority while someone is mid-sentence; pointer-events: none so it
+   never blocks clicking the speaker toggle underneath it. */
+/* The orb's own top edge is pinned at a fixed screen position
+   (--voice-overlay-top, horizontally centered) — only horizontal
+   centering is transform-based.
+   Deliberately NOT vertically centering the whole group: the caption text
+   below the orb appears/grows/shrinks constantly, and centering the group
+   as a unit would shift the orb itself up and down every time that
+   happens, which reads as the orb "moving". Pinning just its top edge
+   keeps the orb rock-steady; only the caption grows downward from it. */
+.voiceOverlay {
+  position: fixed;
+  top: var(--voice-overlay-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: min(60vw, 900px);
+  padding: 0 16px;
+  pointer-events: none;
+  animation: voice-overlay-in 0.3s ease;
+  /* Shared by the orb and the "connecting" spinner's slot, so both are
+     centered on the exact same point. */
+  --voice-orb-size: 192px;
+}
+
+@keyframes voice-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* Shown in .voiceOverlay instead of the orb while a speaker is selected
+   but Chrome hasn't actually started listening yet (e.g. a pending mic
+   permission prompt) — makes that gap impossible to miss. */
+/* Fixed translucent white regardless of the current background theme —
+   same reasoning as the .pending button variant in Button.module.css. */
+.loadingSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--voice-orb-size);
+  height: var(--voice-orb-size);
+  flex-shrink: 0;
+}
+
+.loadingSpinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  animation: loading-spinner-rotate 0.8s linear infinite;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 10px rgba(31, 41, 55, 0.25));
+}
+
+.loadingLabel {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.85);
+}
+
+@keyframes loading-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The current, still-being-recognized sentence — deliberately large so it
+   dominates the screen while someone is actively speaking (paired with
+   .voiceOverlay above). Replaced by a small history line once finalized. */
+.liveCaptionGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* Never grows past the gap between the orb and the speaker toggle
+     (pinned at 80vh — keep in sync with .speakerToggle's top, SpeakerToggle.module.css): a long
+     utterance scrolls inside this box instead of running over the buttons
+     and off the screen. The overlay ignores pointer events, so the scroll
+     position is only ever set from VoiceOverlay.tsx (see captionRef) — the tail
+     while someone is still speaking, the start once it's held with its
+     translation. */
+  max-height: max(
+    96px,
+    calc(80vh - var(--voice-overlay-top) - var(--voice-orb-size) - 20px - 16px)
+  );
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Same "more this way" edge fade as .feed, driven by the same
+     data-fade-* attributes. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--feed-fade-top),
+    #000 calc(100% - var(--feed-fade-bottom)),
+    transparent 100%
+  );
+  transform-origin: center top;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease,
+    --feed-fade-top 0.25s ease,
+    --feed-fade-bottom 0.25s ease;
+}
+
+.liveCaptionGroup::-webkit-scrollbar {
+  display: none;
+}
+
+.liveCaptionGroup[data-fade-top="true"] {
+  --feed-fade-top: 32px;
+}
+
+.liveCaptionGroup[data-fade-bottom="true"] {
+  --feed-fade-bottom: 32px;
+}
+
+/* Scroll content must keep its full height — a flex item would otherwise
+   be squeezed to fit the capped box instead of overflowing it. */
+.liveCaptionGroup > * {
+  flex-shrink: 0;
+}
+
+.liveCaption {
+  margin: 0;
+  font-family: var(--font-playfair, serif);
+  font-style: italic;
+  font-size: clamp(20px, 4vw, 28px);
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink);
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.8);
+}
+
+/* Held with its translation: the translation is what the listener needs
+   now, so the original gives up its room — the full line is in the feed a
+   moment later anyway. */
+.liveCaptionGroup[data-held="true"] .liveCaption {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+
+/* Shown below the original once its translation is ready, while held in
+   the big caption — same pairing the feed uses, just centered here. */
+.liveCaptionTranslated {
+  margin: 0;
+  font-family: var(--font-playfair, serif);
+  font-size: clamp(18px, 3.5vw, 26px);
+  text-align: center;
+  color: var(--ink);
+  opacity: 0.7;
+  text-shadow: 0 2px 16px rgba(255, 255, 255, 0.8);
+}
+
+/* Held for a few seconds after translation finishes, then sinks down and
+   fades out — reads as the utterance dropping into the feed below (see
+   CAPTION_HOLD_MS / CAPTION_SHRINK_MS in useCaptionHold.ts, kept in sync with the
+   0.5s transition duration above). */
+.liveCaptionShrink {
+  transform: scale(0.55) translateY(60px);
+  opacity: 0;
+}

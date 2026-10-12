@@ -263,6 +263,38 @@ describe("Home", () => {
     expect(screen.getByRole("button", { name: "이어서 하기" })).toBeInTheDocument();
   });
 
+  it("deletes a single message from the log, including its saved copy", async () => {
+    const { unmount } = render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "시작하기" }));
+    fireEvent.click(screen.getByText("한국어"));
+    act(() => {
+      finalResultCallbacks["ko-KR"]?.("안녕하세요");
+    });
+    await screen.findByText("你好");
+    fireEvent.click(screen.getByText("한국어"));
+    fireEvent.click(screen.getByText("中文"));
+    act(() => {
+      finalResultCallbacks["zh-CN"]?.("你好，老师");
+    });
+    await screen.findAllByText("안녕하세요");
+
+    // After a refresh no line is held in the big caption, so every line
+    // sits in the feed with its own delete button.
+    unmount();
+    const { unmount: unmountRestored } = render(<Home />);
+    const deleteButtons = await screen.findAllByRole("button", { name: "메시지 삭제" });
+    expect(deleteButtons).toHaveLength(2);
+    fireEvent.click(deleteButtons[0]);
+
+    expect(screen.queryByText("你好")).not.toBeInTheDocument();
+    expect(screen.getByText("你好，老师")).toBeInTheDocument();
+
+    unmountRestored();
+    render(<Home />);
+    expect(await screen.findByText("你好，老师")).toBeInTheDocument();
+    expect(screen.queryByText("你好")).not.toBeInTheDocument();
+  });
+
   it("starts over from an ended session, wiping the conversation and its saved copy", async () => {
     const { unmount } = render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "시작하기" }));

@@ -1,0 +1,15 @@
+.speakerToggle {
+  position: fixed;
+  top: 80vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(92vw, 520px);
+  display: flex;
+  gap: 12px;
+}
+
+.pendingHint {
+  font-size: 13px;
+  font-weight: 500;
+}

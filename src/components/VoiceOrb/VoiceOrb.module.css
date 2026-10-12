@@ -1,0 +1,146 @@
+/* While someone is speaking, the orb is also the "translate now" control:
+   it ends the current utterance immediately instead of waiting for
+   Chrome's silence detection. The overlay around it is pointer-events:
+   none (so captions never block clicks), so the button opts back in.
+   Visually it's just the orb — no button chrome. Disabled (and inert to
+   hover) while there's nothing being recognized to translate. */
+.voiceOrbButton {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.voiceOrbButton:disabled {
+  cursor: default;
+}
+
+.voiceOrbButton:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 4px;
+}
+
+/* Theme-accent wash laid over the blobs on hover — gradients can't
+   transition between colors, so the tint fades in as its own layer
+   instead. It sits inside .voiceOrb, so it spins/breathes and gets the
+   same soft mask. */
+.voiceOrbTint {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--accent) 15%, transparent 75%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.voiceOrbIcon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 8px rgba(31, 41, 55, 0.45));
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.voiceOrbButton:not(:disabled):hover .voiceOrbTint,
+.voiceOrbButton:not(:disabled):focus-visible .voiceOrbTint {
+  opacity: 0.6;
+}
+
+.voiceOrbButton:not(:disabled):hover .voiceOrbIcon,
+.voiceOrbButton:not(:disabled):focus-visible .voiceOrbIcon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.voiceOrb {
+  position: relative;
+  display: block;
+  width: var(--voice-orb-size);
+  height: var(--voice-orb-size);
+  flex-shrink: 0;
+  overflow: hidden;
+  /* Soft radial falloff instead of a hard circular clip — the reference
+     animation has no crisp edge, it just fades into the background. */
+  -webkit-mask-image: radial-gradient(circle, black 48%, transparent 78%);
+  mask-image: radial-gradient(circle, black 48%, transparent 78%);
+  animation: voice-orb-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes voice-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.voiceOrbBlobA,
+.voiceOrbBlobB,
+.voiceOrbBlobC {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  filter: blur(33px);
+}
+
+.voiceOrbBlobA {
+  background: radial-gradient(circle at 30% 30%, #60a5fa, transparent 60%);
+  animation: voice-orb-spin 5s linear infinite;
+}
+
+.voiceOrbBlobB {
+  background: radial-gradient(circle at 70% 40%, #a78bfa, transparent 60%);
+  animation: voice-orb-spin 6.5s linear infinite reverse;
+}
+
+.voiceOrbBlobC {
+  background: radial-gradient(circle at 50% 75%, #f472b6, transparent 55%);
+  animation: voice-orb-swirl 7.5s ease-in-out infinite;
+}
+
+/* No speaker picked yet — same shape/motion, translucent white instead of
+   the vivid blue/purple/pink used once a speaker is actually being
+   listened to, so "not active" reads clearly at a glance without
+   introducing an unrelated gray. */
+.voiceOrbIdle .voiceOrbBlobA {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), transparent 60%);
+}
+
+.voiceOrbIdle .voiceOrbBlobB {
+  background: radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.6), transparent 60%);
+}
+
+.voiceOrbIdle .voiceOrbBlobC {
+  background: radial-gradient(circle at 50% 75%, rgba(255, 255, 255, 0.75), transparent 55%);
+}
+
+@keyframes voice-orb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes voice-orb-swirl {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+}

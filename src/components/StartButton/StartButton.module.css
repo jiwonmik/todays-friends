@@ -1,0 +1,72 @@
+/* Idle (first) screen only — same fixed screen position the speaker
+   toggle / report-trigger button use elsewhere, so the start button
+   anchors near the bottom of the screen regardless of the title above it
+   (which is now its own always-centered component, see PageTitle.tsx). */
+.heroStartButtonFixed {
+  position: fixed;
+  top: 80vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  /* Own stacking context so the ripples (z-index: -1) sit behind the
+     button but still above the page backdrop. */
+  isolation: isolate;
+  line-height: 0;
+}
+
+/* The button itself stays put on hover — the ripples behind it are the
+   hover feedback instead of the shared lift/scale. */
+@media (hover: hover) and (pointer: fine) {
+  /* Extra ancestor class so this beats Button.module.css's `.button:hover`
+     regardless of which stylesheet loads first. */
+  .heroStartButtonFixed .heroStartButton:hover {
+    transform: none;
+    box-shadow: 0 10px 28px rgba(31, 41, 55, 0.2);
+  }
+}
+
+/* "Stone dropped in a well" rings: each starts at the button's edge and
+   spreads outward while thinning and fading, staggered so a new ring
+   follows the last one out. Only runs while the button is hovered. */
+.ripple {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .heroStartButtonFixed:hover .ripple {
+    animation: hero-start-ripple 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  }
+
+  .heroStartButtonFixed:hover .ripple:nth-child(2) {
+    animation-delay: 0.8s;
+  }
+
+  .heroStartButtonFixed:hover .ripple:nth-child(3) {
+    animation-delay: 1.6s;
+  }
+}
+
+@keyframes hero-start-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+    border-width: 6px;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+    border-width: 1.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroStartButtonFixed:hover .ripple {
+    animation: none;
+  }
+}

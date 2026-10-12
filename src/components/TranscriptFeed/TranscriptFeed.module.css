@@ -155,20 +155,50 @@
   opacity: 1;
 }
 
-/* Slot for the delete button beside each message, on its open side (the
-   row's flex direction puts it right of "나" and left of "학생"). The
-   button stays invisible until the message's line is hovered — or it's
-   focused by keyboard. */
-.messageDeleteGutter {
-  width: 44px;
+/* While a message is being edited it takes the row's free width, so the
+   input isn't squeezed down to the old text's width. */
+.messageEditing {
+  flex: 1;
+  opacity: 1;
+}
+
+.messageEditInput {
+  display: block;
+  width: 100%;
+  /* Grows with what's typed (Chrome — the only browser this app runs in). */
+  field-sizing: content;
+  resize: none;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+.messageEditInput:focus {
+  outline: 1px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 0;
+}
+
+/* Slot for the edit/delete buttons beside each message, on its open side
+   (the row's flex direction puts it right of "나" and left of "학생").
+   The buttons stay invisible until the message's line is hovered — or one
+   is focused by keyboard. */
+.messageActions {
   flex-shrink: 0;
   align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  padding: 0 4px;
 }
 
-.messageDeleteButton {
+.messageActionButton {
   width: 30px;
   height: 30px;
   border: none;
@@ -186,10 +216,20 @@
     color 0.15s ease;
 }
 
-.messageRow:hover .messageDeleteButton,
-.messageDeleteButton:focus-visible {
+.messageRow:hover .messageActionButton,
+.messageActionButton:focus-visible,
+.messageActionPinned {
   opacity: 1;
   pointer-events: auto;
+}
+
+.messageActionButton:hover {
+  color: var(--accent);
+}
+
+.messageActionButton:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .messageDeleteButton:hover {

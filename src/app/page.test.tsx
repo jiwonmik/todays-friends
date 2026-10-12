@@ -295,6 +295,100 @@ describe("Home", () => {
     expect(screen.queryByText("你好")).not.toBeInTheDocument();
   });
 
+  /** Speaks one Korean line and reloads, so it sits in the feed (not the big caption). */
+  async function renderWithLoggedKoreanLine() {
+    const { unmount } = render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "시작하기" }));
+    fireEvent.click(screen.getByText("한국어"));
+    act(() => {
+      finalResultCallbacks["ko-KR"]?.("안녕하세요");
+    });
+    await screen.findByText("你好");
+    unmount();
+    render(<Home />);
+    await screen.findByRole("button", { name: "메시지 수정" });
+  }
+
+  it("re-translates an edited message, clearing its old translation right away", async () => {
+    await renderWithLoggedKoreanLine();
+    const fetchMock = vi.mocked(fetch);
+    let finishTranslation: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (finishTranslation = resolve))
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "메시지 수정" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "메시지 수정" }), {
+      target: { value: "안녕히 가세요" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "수정 완료" }));
+
+    expect(screen.getByText("안녕히 가세요")).toBeInTheDocument();
+    expect(screen.queryByText("你好")).not.toBeInTheDocument();
+    expect(screen.getByText("번역 중...")).toBeInTheDocument();
+    const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(lastCall[0]).toBe("/api/translate");
+    expect(JSON.parse(lastCall[1]!.body as string)).toEqual({
+      text: "안녕히 가세요",
+      sourceLang: "ko-KR",
+    });
+
+    await act(async () => {
+      finishTranslation(new Response(JSON.stringify({ translated: "再见" }), { status: 200 }));
+    });
+    expect(await screen.findByText("再见")).toBeInTheDocument();
+  });
+
+  it("does not re-translate when an edit is cancelled or changes nothing", async () => {
+    await renderWithLoggedKoreanLine();
+    const fetchMock = vi.mocked(fetch);
+    const callsBefore = fetchMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "메시지 수정" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "메시지 수정" }), {
+      target: { value: "다른 문장" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "수정 취소" }));
+    expect(screen.getByText("안녕하세요")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "메시지 수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "수정 완료" }));
+
+    expect(screen.getByText("你好")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+  });
+
+  it("ignores a translation that arrives for text the message no longer has", async () => {
+    await renderWithLoggedKoreanLine();
+    const fetchMock = vi.mocked(fetch);
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((resolve) => pending.push(resolve))
+    );
+    const edit = (text: string) => {
+      fireEvent.click(screen.getByRole("button", { name: "메시지 수정" }));
+      fireEvent.change(screen.getByRole("textbox", { name: "메시지 수정" }), {
+        target: { value: text },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "수정 완료" }));
+    };
+
+    edit("첫 번째 수정");
+    edit("두 번째 수정");
+    expect(pending).toHaveLength(2);
+
+    // The newer request answers first, then the outdated one trails in.
+    await act(async () => {
+      pending[1](new Response(JSON.stringify({ translated: "第二次" }), { status: 200 }));
+    });
+    await act(async () => {
+      pending[0](new Response(JSON.stringify({ translated: "第一次" }), { status: 200 }));
+    });
+
+    expect(await screen.findByText("第二次")).toBeInTheDocument();
+    expect(screen.queryByText("第一次")).not.toBeInTheDocument();
+  });
+
   it("starts over from an ended session, wiping the conversation and its saved copy", async () => {
     const { unmount } = render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "시작하기" }));

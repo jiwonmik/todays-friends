@@ -50,7 +50,8 @@ export default function Home() {
   const [restored, setRestored] = useState(false);
 
   const meshTheme = useMeshTheme();
-  const { transcript, addLine, deleteLine, restoreLines, clearLines } = useTranscript(setApiError);
+  const { transcript, addLine, deleteLine, editLine, restoreLines, clearLines } =
+    useTranscript(setApiError);
   const { report, summarizing, setReport, updateReportField, generateReport, cancelReportGeneration } =
     useReportDraft(transcript, setApiError);
   const { displayLineId, captionShrinking, holdLine, releaseLine } = useCaptionHold(transcript, speaker);
@@ -248,6 +249,7 @@ export default function Home() {
           lines={transcript.filter((line) => line.id !== displayLineId)}
           review={Boolean(report) || summarizing}
           onDelete={deleteLine}
+          onEdit={editLine}
           feedRef={feedRef}
         />
       )}

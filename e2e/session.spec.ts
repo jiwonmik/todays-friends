@@ -89,6 +89,30 @@ test("full session: start, speak both languages, end with an editable report dra
   expect(href).toContain("entry.2077271802=%ED%99%8D%EA%B8%B8%EB%8F%99"); // 3. 학생명 = "홍길동"
 });
 
+test("editing a logged message replaces its translation with a fresh one", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "시작하기" }).click();
+  await page.getByText("한국어").click();
+  await speakFinal(page, "안녕하세요");
+  await expect(page.getByText("你好")).toBeVisible();
+  await page.getByRole("button", { name: "종료하기" }).click();
+
+  // From here on, translations answer with the text they were asked for,
+  // so the fresh one is distinguishable from the original "你好".
+  await page.route("**/api/translate", async (route) => {
+    const body = route.request().postDataJSON() as { text: string };
+    await route.fulfill({ json: { translated: `[zh] ${body.text}` } });
+  });
+
+  await page.getByText("안녕하세요").hover();
+  await page.getByRole("button", { name: "메시지 수정" }).click();
+  await page.getByRole("textbox", { name: "메시지 수정" }).fill("안녕히 가세요");
+  await page.getByRole("textbox", { name: "메시지 수정" }).press("Enter");
+
+  await expect(page.getByText("[zh] 안녕히 가세요")).toBeVisible();
+  await expect(page.getByText("你好")).not.toBeVisible();
+});
+
 test("only the active speaker's language is recognized", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "시작하기" }).click();

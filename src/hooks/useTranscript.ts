@@ -12,6 +12,8 @@ interface Transcript {
   /** Appends a just-recognized utterance and sends it off for translation. */
   addLine: (speaker: TranscriptLine["speaker"], text: string, sourceLang: CaptionLang) => number;
   deleteLine: (id: number) => void;
+  /** Replaces a line's original text and translates it again from scratch. */
+  editLine: (id: number, text: string) => void;
   /** Replaces the log with a saved one, re-sending translations that never finished. */
   restoreLines: (lines: TranscriptLine[]) => void;
   clearLines: () => void;
@@ -24,6 +26,9 @@ export function useTranscript(onError: (message: string) => void): Transcript {
   const translateLine = useCallback(
     async (id: number, text: string, sourceLang: CaptionLang) => {
       const traceId = createTraceId();
+      // A line edited while this request was in flight has a newer request
+      // of its own — this one's answer is for text that's no longer there.
+      const isRequestedLine = (line: TranscriptLine) => line.id === id && line.original === text;
       try {
         const res = await fetch("/api/translate", {
           method: "POST",
@@ -36,7 +41,7 @@ export function useTranscript(onError: (message: string) => void): Transcript {
         }
         setTranscript((prev) =>
           prev.map((line) =>
-            line.id === id ? { ...line, translated: data.translated, translating: false } : line
+            isRequestedLine(line) ? { ...line, translated: data.translated, translating: false } : line
           )
         );
       } catch (err) {
@@ -45,7 +50,7 @@ export function useTranscript(onError: (message: string) => void): Transcript {
         onError(`${message} (trace: ${traceId})`);
         setTranscript((prev) =>
           prev.map((line) =>
-            line.id === id ? { ...line, translated: "(번역 실패)", translating: false } : line
+            isRequestedLine(line) ? { ...line, translated: "(번역 실패)", translating: false } : line
           )
         );
       }
@@ -70,6 +75,19 @@ export function useTranscript(onError: (message: string) => void): Transcript {
     setTranscript((prev) => prev.filter((line) => line.id !== id));
   }, []);
 
+  const editLine = useCallback(
+    (id: number, text: string) => {
+      const line = transcript.find((l) => l.id === id);
+      const edited = text.trim();
+      if (!line || !edited || edited === line.original) return;
+      setTranscript((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, original: edited, translated: "", translating: true } : l))
+      );
+      translateLine(id, edited, line.speaker === "나" ? "ko-KR" : "zh-CN");
+    },
+    [transcript, translateLine]
+  );
+
   const restoreLines = useCallback(
     (lines: TranscriptLine[]) => {
       lineIdCounter = Math.max(...lines.map((l) => l.id));
@@ -90,5 +108,5 @@ export function useTranscript(onError: (message: string) => void): Transcript {
     setTranscript([]);
   }, []);
 
-  return { transcript, addLine, deleteLine, restoreLines, clearLines };
+  return { transcript, addLine, deleteLine, editLine, restoreLines, clearLines };
 }
